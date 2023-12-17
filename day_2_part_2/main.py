@@ -1,5 +1,3 @@
-from functools import reduce
-
 def parse_input() -> list:
     f = open('input.txt', 'r', encoding="utf-8")
     games = []
@@ -23,18 +21,16 @@ def parse_input() -> list:
         games.append(game)
     return games
 
-def get_max_cubes(first: dict, second: dict) -> dict:
-    result = {}
-    result['red'] = first['red'] if first['red'] > second['red'] else second['red']
-    result['green'] = first['green'] if first['green'] > second['green'] else second['green']
-    result['blue'] = first['blue'] if first['blue'] > second['blue'] else second['blue']
-    return result
-
-def calc_game_power(game: dict) -> int:
-    maxed =  reduce(get_max_cubes, game['tests'])
-    return reduce(lambda acc, next: acc * next, maxed.values())
+def check_game(game: dict) -> bool:
+    for test in game['tests']:
+        if test['red'] > 12:
+            return False
+        elif test['green'] > 13:
+            return False
+        elif test['blue'] > 14:
+            return False
+    return True
 
 games = parse_input()
-powers = map(calc_game_power, games)
-mysum = sum(powers)
+mysum = sum([game['id'] for game in games if check_game(game)])
 print(mysum)
