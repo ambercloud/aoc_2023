@@ -8,7 +8,7 @@ f = open('input.txt', 'r', encoding='utf-8')
 
 #let's build a map of symbols and numbers
 
-re_num = re.compile(r'(?:^|\D)(\d+)\D')
+re_num = re.compile(r'(\d++)')
 re_sym = re.compile(r'[^.\d\n]')
 
 numbers = []
@@ -36,5 +36,5 @@ def is_symbol_nearby(num: Number, symbols: set) -> bool:
     adjacent.update({Linepos(num.line + 1, pos) for pos in range(num.start - 1, num.end + 1)})
     return not adjacent.isdisjoint(symbols)
 
-zip()
-print([x for x in zip([num.value for num in numbers], [is_symbol_nearby(num, symbols) for num in numbers])])
+part_numbers = [num.value for num in numbers if is_symbol_nearby(num, symbols)]
+print(sum(part_numbers))
