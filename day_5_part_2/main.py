@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import NamedTuple
 from typing import List
 from dataclasses import dataclass
+from functools import reduce
 
     
 class Range:
@@ -9,7 +10,7 @@ class Range:
         self.start = start
         self.end = end if end > start else start
     def __repr__(self) -> str:
-        return f"Range({self.start, self.end})"
+        return f"Range({self.start}, {self.end})"
     def __len__(self) -> int:
         return self.end - self.start if self.end > self.start else 0
     def __lt__(self, x: Range) -> bool:
@@ -22,10 +23,10 @@ class Range:
         return Range(max(self.start, x.start), min(self.end, x.end))
     def difference(self, x: Range) -> List[Range]:
         result = []
-        dif1 = Range(self.start, x.start)
+        dif1 = Range(self.start, min(self.end, x.start))
         if dif1:
             result.append(dif1)
-        dif2 = Range(x.end, self.end)
+        dif2 = Range(max(x.end, self.start), self.end)
         if dif2:
             result.append(dif2)
         return result
@@ -47,7 +48,9 @@ class Offset:
         offset = self.dest - self.source
         match = x.intersect(this)
         if match:
-            translated.append(Range(x.start + offset, x.end + offset))
+            if match.start + offset < 0:
+                pass
+            translated.append(Range(match.start + offset, match.end + offset))
         remainder.extend(x.difference(this))
         return (translated, remainder)
 
@@ -56,21 +59,28 @@ class Map:
         self.offsets = [] if offset is None else offset
     def append(self, offset: [int]) -> None:
         self.offsets.append(Offset(*offset))
-    def translate(self, input: List[Range]) -> List[Range]:
+    def translate(self, input: Range) -> List[Range]:
         output = []
-        for r in input:
-            remainder = [r]
-            for offset in self.offsets:
-                translated = offset.translate(remainder)
-                output.extend(translated[0])
-                remainder = translated[1]
-            output.extend(remainder)
+        remainder = [input]
+        for offset in self.offsets:
+            remainder_old = remainder[:]
+            remainder = []
+            for rnge in remainder_old:
+                res = offset.translate(rnge)
+                output.extend(res[0])
+                remainder.extend(res[1])
+        output.extend(remainder)
+        return output
+
         # join translated and not remapped together
         return output
     
 class Mappable(list):
     def map(self, m: Map) -> Mappable:
-        return Mappable(m.translate(self))
+        output = Mappable()
+        for x in self:
+            output.extend(m.translate(x))
+        return output
 
 def parse_input(seeds: List[int], seed_soil: Map, soil_fert: Map, fert_water: Map, \
                 water_light: Map, light_temp: Map, temp_humid: Map, humid_loc: Map) -> None:
@@ -110,13 +120,12 @@ def parse_input(seeds: List[int], seed_soil: Map, soil_fert: Map, fert_water: Ma
         humid_loc.append(map(int, line.split()))
 
 seeds = Mappable()
+
 maps = [Map([]) for i in range(7)]
 
 parse_input(seeds, *maps)
 
 seed_soil, soil_fert, fert_water, water_light, light_temp, temp_humid, humid_loc = maps
 
-locations = seeds.map(seed_soil).map(soil_fert).map(fert_water).map(water_light)\
-.map(light_temp).map(temp_humid).map(humid_loc)
-
+locations = reduce(lambda prev, next: prev.map(next), maps, seeds)
 print(min(locations))
