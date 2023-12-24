@@ -34,5 +34,4 @@ def parse_input(filename: str) -> List[tuple[str, int]]:
 
 data = parse_input('input.txt')
 sorted_data = (sorted(data))
-print([x for x in enumerate(sorted_data, start = 1)])
 print(reduce(lambda acc,val: acc + val[0] * val[1][1], enumerate(sorted_data, start = 1), 0))
