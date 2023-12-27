@@ -36,30 +36,60 @@ def parse_input(filename: str) -> tuple[str, dict[str,tuple[str,str]]]:
         data[line[0:3]] = (line[7:10], line[12:15])
     return (directions, data)
 
+def prepare_network(nodes: List[Node], data: dict[str, tuple[str,str]]) -> None:
+    # populate network with Node objects
+    for n in data:
+        node = Node()
+        node.value = n
+        nodes.append(node)
+    #interconnect Nodes    
+    for n in nodes:
+        left, right = data[n.value]
+        #connect left
+        for l in nodes:
+            if l.value == left:
+                n.left = l
+                break
+        else:
+            raise Exception(f'left item not found for ({n.value}, {n.left}, {n.right})')
+        #connect right
+        for r in nodes:
+            if r.value == right:
+                n.right = r
+                break
+        else:
+            raise Exception(f'right item not found for ({n.value}, {n.left}, {n.right})')
+        
+def find_loops(directions: str, walkers: List[Node]) -> List[str]:
+    loops = []
+    for walker in walkers:
+        backtrack: List[tuple[int, str]] = []
+        steps = 0
+        while True:
+            for i, step in enumerate(directions):
+                walker = walker.left if step =='L' else walker.right
+                steps += 1
+                if (i, walker.value) in backtrack:
+                    loop_length = len(backtrack) - backtrack.index((i, walker.value))
+                    print(f'loop found! Node: {walker}, loop_length: {loop_length}, directions position: {i}, {step}, loop start position: {backtrack.index((i, walker.value))}')
+                    loop = [x[1] for x in backtrack[backtrack.index((i, walker.value)):]]
+                    loops.append(loop)
+                    break
+                else:
+                    backtrack.append((i, walker.value))
+            else:
+                continue
+            break
+    return loops
+
 directions, data = parse_input('input.txt')
 
 network = list()
-# populate network with Node objects
-for n in data:
-    node = Node()
-    node.value = n
-    network.append(node)
-#interconnect Nodes    
-for n in network:
-    left, right = data[n.value]
-    #connect left
-    for l in network:
-        if l.value == left:
-            n.left = l
-            break
-    else:
-        raise Exception(f'left item not found for ({n.value}, {n.left}, {n.right})')
-    #connect right
-    for r in network:
-        if r.value == right:
-            n.right = r
-            break
-    else:
-        raise Exception(f'right item not found for ({n.value}, {n.left}, {n.right})')
+prepare_network(network, data)
 
-print(walk(directions, network))
+walkers: List[Node] = list(filter(lambda x: x.value[2] == 'A', network))
+loops = find_loops(directions, walkers)
+
+for loop in loops:
+    zs = [x for x in filter(lambda y: y[2] == 'Z', loop)]
+    print(zs)
