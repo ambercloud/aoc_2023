@@ -38,29 +38,19 @@ def parse_input(filename: str) -> tuple[str, dict[str,tuple[str,str]]]:
         data[line[0:3]] = (line[7:10], line[12:15])
     return (directions, data)
 
-def prepare_network(nodes: List[Node], data: dict[str, tuple[str,str]]) -> None:
+def prepare_network(nodes: dict[str, Node], data: dict[str, tuple[str,str]]) -> None:
     # populate network with Node objects
-    for n in data:
+    for key in data:
         node = Node()
-        node.value = n
-        nodes.append(node)
+        node.value = key
+        nodes[key] = node
     #interconnect Nodes    
-    for n in nodes:
-        left, right = data[n.value]
+    for key, node in nodes.items():
+        left, right = data[key]
         #connect left
-        for l in nodes:
-            if l.value == left:
-                n.left = l
-                break
-        else:
-            raise Exception(f'left item not found for ({n.value}, {n.left}, {n.right})')
+        node.left = nodes[left]
         #connect right
-        for r in nodes:
-            if r.value == right:
-                n.right = r
-                break
-        else:
-            raise Exception(f'right item not found for ({n.value}, {n.left}, {n.right})')
+        node.right = nodes[right]
         
 class Loop:
     class LoopStep(NamedTuple):
@@ -112,12 +102,12 @@ directions, data = parse_input('input.txt')
 Loop.directions = directions
 
 
-network = list()
+network = dict()
 prepare_network(network, data)
 
 #every walker fall into the loop of cycled nodes. We find those loops and their length to
 #calculate the periods in which each of them loop over
-walkers: List[Node] = list(filter(lambda x: x.value[2] == 'A', network))
+walkers: List[Node] = [node for key, node in network.items() if key[2] == 'A']
 loops = find_loops(directions, walkers)
 
 loop = loops[0]
