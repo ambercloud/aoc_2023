@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List
 from dataclasses import dataclass
 from typing import NamedTuple
+import math
 
 class Node:
     def __init__(self) -> None:
@@ -40,6 +41,7 @@ class Walker:
         return f"Walker(start: '{self.start.value}', offset: {self.loop_offset}, loop_length: {self.loop_length})"
 
     def walk_at(self, steps_num: int) -> Node:
+        "Returns a node walker arrives at after number of steps"
         if steps_num < self.loop_offset:
             return self.header[steps_num]
         else:
@@ -74,6 +76,24 @@ def prepare_network(nodes: dict[str, Node], data: dict[str, tuple[str,str]]) -> 
         #connect right
         node.right = nodes[right]
 
+def calc_steps_to_finish(walkers: List[Walker]):
+    #sort walkers by loop length first
+    walkers = sorted(walkers, key = lambda x: x.loop_length, reverse=True)
+    #set starting point for cycling for first walker
+    big = walkers[0]
+    h, l = big.find(lambda x: x.value[2] == 'Z')
+    #we know that all Zs are in the loop, no need to check for header
+    #calculate offset by summing header length and index of found value in the loop
+    steps = big.loop_offset + l[0][0]
+    cycle_size = big.loop_length
+    print(f'first walker, steps: {steps}, {big}')
+    for w in walkers[1:]:
+        print(f'next walker initial, steps: {steps}, {w}')
+        while w.walk_at(steps).value[2] != 'Z':
+            steps = steps + cycle_size
+        cycle_size = math.lcm(cycle_size, w.loop_length)
+    return steps
+        
 
 directions, data = parse_input('input.txt')
 network = dict()
@@ -82,4 +102,7 @@ prepare_network(network, data)
 #every walker fall into the loop of cycled nodes. We find those loops and their length to
 #calculate the periods in which each of them loop over
 walkers: List[Walker] = [Walker(node, directions) for key, node in network.items() if key[2] == 'A']
-print(walkers)
+steps = calc_steps_to_finish(walkers)
+print(f'steps: {steps}')
+for w in walkers:
+    print(w.walk_at(steps))
