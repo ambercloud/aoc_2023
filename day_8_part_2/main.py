@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import NamedTuple
 
 class Node:
-
     def __init__(self) -> None:
         self.value: str = ""
         self.left: Node = None
@@ -12,22 +11,45 @@ class Node:
     def __repr__(self) -> str:
         return f'Node({self.value}, {self.left.value}, {self.right.value})'
 
+class Walker:
+    def _find_loop(self, start: Node, directions: str) -> tuple[List[Node], List[Node]]:
+        backtrack: List[tuple[int, Node]] = []
+        walker = start
+        while True:
+            for i, step in enumerate(directions):
+                if (i, walker) in backtrack:
+                    loop_start = backtrack.index((i, walker))
+                    loop_length = len(backtrack) - loop_start
+                    print(f'loop found! Node: {walker}, loop_length: {loop_length}, directions position: {i}, {step}, loop start position: {loop_start}')
+                    backtrack_stripped = [x[1] for x in backtrack]
+                    loop_header = backtrack_stripped[:loop_start]
+                    loop = backtrack_stripped[loop_start:]
+                    return (loop_header, loop)
+                else:
+                    backtrack.append((i, walker))
+                    walker = walker.left if step =='L' else walker.right
 
-def walk(directions:str, network: List[Node]):
-    steps = 0
-    walkers = list(filter(lambda x: x.value[2] == 'A', network))
-    for node in network:
-        node.finish = True if node.value[2] == 'Z' else False
-    while True:
-        for step in directions:
-            walkers = list(map(lambda node: node.left if step == 'L' else node.right, walkers))
-            steps += 1
-            zs = [w.finish for w in walkers]
-            if zs.count(True) > 2:
-                print(f'{zs.count(True)}, {steps}')
-            if all(zs):
-                return steps
+    def __init__(self, start: Node, directions:str) -> None:
+        self.start = start
+        self._directions = directions
+        self.step = 0
+        self.header, self.loop = self._find_loop(self.start, self._directions)
+        self.loop_offset = len(self.header)
+        self.loop_length = len(self.loop)
+    def __repr__(self) -> str:
+        return f"Walker(start: '{self.start.value}', offset: {self.loop_offset}, loop_length: {self.loop_length})"
 
+    def walk_at(self, steps_num: int) -> Node:
+        if steps_num < self.loop_offset:
+            return self.header[steps_num]
+        else:
+            position_in_loop = (steps_num - self.loop_offset) % self.loop_length
+            return self.loop[position_in_loop]
+    def find(self, f: function):
+        "Returns values found in the header and the loop body of Walker and their respective positions"
+        h = filter(lambda x: f(x[1]), enumerate(self.header))
+        l = filter(lambda x: f(x[1]), enumerate(self.loop))
+        return ([x for x in h], [x for x in l])
 
 def parse_input(filename: str) -> tuple[str, dict[str,tuple[str,str]]]:
     f = open(filename, 'r', encoding='utf-8')
@@ -51,63 +73,13 @@ def prepare_network(nodes: dict[str, Node], data: dict[str, tuple[str,str]]) -> 
         node.left = nodes[left]
         #connect right
         node.right = nodes[right]
-        
-class Loop:
-    class LoopStep(NamedTuple):
-        directions_index: int
-        node: Node
 
-    directions: str = ''
-
-    def __init__(self, header: List[LoopStep], loop: List[LoopStep]) -> None:
-        self.header = header
-        self.loop = loop
-        self._steps = 0
-
-    def get_pos(self) -> int:
-        return self._steps
-    
-    def cycle(self, steps_num: int) -> int:
-        '''Cycle through a number of steps. Returns total number of steps cycled'''
-        self._steps += steps_num
-        return self._steps
-    
-
-        
-def find_loops(directions: str, walkers: List[Node]) -> List[Loop]:
-    loops = []
-    for walker in walkers:
-        backtrack: List[tuple[int, str]] = []
-        steps = 0
-        while True:
-            for i, step in enumerate(directions):
-                if (i, walker) in backtrack:
-                    loop_start = backtrack.index((i, walker))
-                    loop_length = len(backtrack) - loop_start
-                    print(f'loop found! Node: {walker}, loop_length: {loop_length}, directions position: {i}, {step}, loop start position: {loop_start}')
-                    loop_header = backtrack[:loop_start]
-                    loop = backtrack[loop_start:]
-                    loops.append(Loop(loop_header, loop))
-                    break
-                else:
-                    backtrack.append((i, walker))
-                walker = walker.left if step =='L' else walker.right
-                steps += 1
-            else:
-                continue
-            break
-    return loops
 
 directions, data = parse_input('input.txt')
-Loop.directions = directions
-
-
 network = dict()
 prepare_network(network, data)
 
 #every walker fall into the loop of cycled nodes. We find those loops and their length to
 #calculate the periods in which each of them loop over
-walkers: List[Node] = [node for key, node in network.items() if key[2] == 'A']
-loops = find_loops(directions, walkers)
-
-loop = loops[0]
+walkers: List[Walker] = [Walker(node, directions) for key, node in network.items() if key[2] == 'A']
+print(walkers)
