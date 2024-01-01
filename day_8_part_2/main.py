@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import List
-from dataclasses import dataclass
 from typing import NamedTuple
 import math
 
@@ -86,11 +85,12 @@ def calc_steps_to_finish(walkers: List[Walker]):
     #calculate offset by summing header length and index of found value in the loop
     steps = big.loop_offset + l[0][0]
     cycle_size = big.loop_length
-    print(f'first walker, steps: {steps}, {big}')
+    print(f'first walker, steps: {steps}, {big.walk_at(steps)}')
     for w in walkers[1:]:
-        print(f'next walker initial, steps: {steps}, {w}')
+        print(f'walker initial, steps: {steps}, {w.walk_at(steps)}')
         while w.walk_at(steps).value[2] != 'Z':
             steps = steps + cycle_size
+        print(f'walker final, steps: {steps}, {w.walk_at(steps)}')
         cycle_size = math.lcm(cycle_size, w.loop_length)
     return steps
         
