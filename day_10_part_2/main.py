@@ -93,13 +93,13 @@ def find_loop(beastxy: tuple[int, int], field: Map) -> List[Pipe]:
 def find_inner_cells(loop: List[Pipe], field: Map) -> List[Pipe]:
     #use Sunday's algorithm to find cells inside the loop
     #go through the loop marking vertical direction we're going in
-    #iterate through every pipe but the last, last one we compare to the start of the loop manually
-    for i in range(len(loop) - 2):
+    #iterate through every pipe but the first and the last, last one we compare manually to avoid out of bounds situation
+    for i in range(1, len(loop) - 2):
         #(0,0) point is top left.
-        #vdir <0 means we go up, vdir>0 means we go down. 0 is horisontal
-        vdir = loop[i+1].y - loop[i].y
-        loop[i].vdir = vdir
-    loop[-1].vdir = loop[-1].y - loop[0].y
+        #vdir <0 means we go up, vdir>0 means we go down. 0 is horizontal
+        loop[i].vdir = loop[i+1].y - loop[i-1].y
+    loop[-1].vdir = loop[0].y - loop[-2].y
+    loop[0].vdir = loop[1].y - loop[-1].y
     #finding top, bottom, left and right boundaries of the loop and ignore all the cells
     #outside the range to limit number of cells checked
     ymin = min([pipe.y for pipe in loop])
@@ -125,11 +125,11 @@ def find_inner_cells(loop: List[Pipe], field: Map) -> List[Pipe]:
         if wnum:
             inners.append(cand)
     return inners
-    
-
+            
 field = Map(parse_input('input.txt'))
 field.connect_pipes()
 beastxy = field.find_beast()
 loop = find_loop(beastxy, field)
 inners = find_inner_cells(loop, field)
+
 print(len(inners))
