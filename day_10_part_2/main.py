@@ -125,11 +125,39 @@ def find_inner_cells(loop: List[Pipe], field: Map) -> List[Pipe]:
         if wnum:
             inners.append(cand)
     return inners
+
+def write_debug(loop: List[Pipe], inners: List[Pipe], field: Map):
+    dbg = open('debug.txt', 'w', encoding='utf-8')
+    for row in field.pipes:
+        line = ""
+        for pipe in row:
+            m = 0
+            m = m + 0b01 if pipe in loop else m
+            m = m + 0b10 if pipe in inners else m
+            match m:
+                case 0b00:
+                    line += '.'
+                case 0b01:
+                    if pipe.vdir < 0:
+                        line += '↑'
+                    elif pipe.vdir > 0:
+                        line += '↓'
+                    else:
+                        line += '-'
+                case 0b10:
+                    line += 'x'
+                case 0b11:
+                    line += '*'
+                case _:
+                    raise Exception('Huh?')
+        line += '\n'
+        dbg.write(line)
             
 field = Map(parse_input('input.txt'))
 field.connect_pipes()
 beastxy = field.find_beast()
 loop = find_loop(beastxy, field)
 inners = find_inner_cells(loop, field)
+#write_debug(loop, inners, field)
 
 print(len(inners))
