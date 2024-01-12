@@ -20,11 +20,11 @@ def expand_universe(input: List[List[str]]):
     for i in range(len(temp[0])):
         col = [row[i] for row in temp]
         for j in range(len(col)):
-            output[j].extend(col[j])
+            output[j].append(col[j])
         #if the column is empty - double it
         if not '#' in col:
             for j in range(len(col)):
-                output[j].extend(col[j])
+                output[j].append(col[j])
     return output
 
 def write_debug(input: List[List[str]]):
