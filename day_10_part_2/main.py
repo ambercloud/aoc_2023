@@ -126,7 +126,7 @@ def find_inner_cells(loop: List[Pipe], field: Map) -> List[Pipe]:
             inners.append(cand)
     return inners
 
-def write_debug(loop: List[Pipe], inners: List[Pipe], field: Map):
+def write_debug(loop: List[Pipe], inners: List[Pipe], field: Map) -> None:
     dbg = open('debug.txt', 'w', encoding='utf-8')
     for row in field.pipes:
         line = ""
