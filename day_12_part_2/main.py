@@ -20,21 +20,6 @@ def parse_input(filename: str) -> List[tuple[str,List[int]]]:
         output.append((Record(springs), repdata))
     return output
 
-def get_chunk_placements(full_width: int, chunk_width: int, boundary: int|None = None) -> Iterator[int]:
-    #get a generator returning a sequence of chunk placements fitting certain criteria expressed as binary numbers
-    #positive boundary is the boundary of leftmost 1 in sequence, negative is the boundary of rightmost 1 in the sequence
-    #e.g. get_chunk_placements(6, 2, 2) gives: 110000, 011000.
-    #get_chunk_placements(6, 2, -1) gives 110000, 011000, 001100, 000110
-    if boundary is None:
-        min_shift = 0
-    elif boundary > (full_width - chunk_width + 1) or boundary < (chunk_width - full_width - 1):
-        raise Exception('boundary is out of bounds')
-    else:
-        min_shift = -boundary if boundary < 0 else full_width - chunk_width - boundary + 1
-    for i in range(full_width - chunk_width, -1 + min_shift, -1):
-        yield (2**chunk_width - 1) << i
-
-
 def count_placements(rec: Record, chunks: List[int], is_first: bool = True) -> int:
     #count possible placements for first chunk, then repeat recursively for each placement
     count = 0
