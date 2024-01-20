@@ -38,6 +38,7 @@ def get_chunk_placements(full_width: int, chunk_width: int, boundary: int|None =
 def count_placements(rec: Record, chunks: List[int], is_first: bool = True) -> int:
     #count possible placements for first chunk, then repeat recursively for each placement
     count = 0
+    pattern = rec.value
     min_left_shift = 0 if len(chunks) == 1 else sum(chunks[1:]) + (len(chunks) - 1)
     #if it's not the first chunk we must leave a gap after previous chunk
     full_width = len(rec.value)
@@ -45,6 +46,7 @@ def count_placements(rec: Record, chunks: List[int], is_first: bool = True) -> i
     max_left_shift = full_width - chunk_width if is_first else full_width - chunk_width - 1
     for left_shift in range(max_left_shift, -1 + min_left_shift, -1):
         badmap = (2**chunk_width - 1) << left_shift
+        badmap_str = bin(badmap).removeprefix('0b').rjust(full_width, '0')
         is_gap_available = (rec.bad >> (left_shift + chunk_width)) == 0
         if not is_gap_available:
             break
