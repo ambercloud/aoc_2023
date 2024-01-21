@@ -1,5 +1,4 @@
-from typing import List, Iterator, Generator
-import re
+from typing import List
 
 class Record:
     def __init__(self, value: str) -> None:

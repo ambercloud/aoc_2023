@@ -1,11 +1,9 @@
-from typing import List, Iterator, Generator
-import re
-
+from typing import List
 class Record:
     def __init__(self, value: str) -> None:
         self.value = value
         self.bad = int(value.replace('.', '0').replace('?', '0').replace('#', '1'), 2)
-        self.good = int(value.replace('.', '1').replace('?', '0').replace('#', '0'), 2)
+        #self.good = int(value.replace('.', '1').replace('?', '0').replace('#', '0'), 2)
         self.unknown = int(value.replace('.', '0').replace('?', '1').replace('#', '0'), 2)
 
 def parse_input(filename: str) -> List[tuple[str,List[int]]]:
