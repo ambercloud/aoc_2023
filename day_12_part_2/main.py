@@ -1,10 +1,26 @@
 from typing import List
+import cProfile
 class Record:
     def __init__(self, value: str) -> None:
         self.value = value
-        self.bad = int(value.replace('.', '0').replace('?', '0').replace('#', '1'), 2)
+        badstr = ''
+        unkstr = ''
+        for x in value:
+            match x:
+                case '#':
+                    badstr += '1'
+                    unkstr += '0'
+                case '?':
+                    badstr += '0'
+                    unkstr += '1'
+                case '.':
+                    badstr += '0'
+                    unkstr += '0'
+                case _:
+                    raise Exception('corrupted input')
+        self.bad = int(badstr, 2)
+        self.unknown = int(unkstr, 2)
         #self.good = int(value.replace('.', '1').replace('?', '0').replace('#', '0'), 2)
-        self.unknown = int(value.replace('.', '0').replace('?', '1').replace('#', '0'), 2)
 
 def parse_input(filename: str) -> List[tuple[str,List[int]]]:
     f = open(filename, 'r', encoding='utf-8')
@@ -21,7 +37,8 @@ def parse_input(filename: str) -> List[tuple[str,List[int]]]:
 def count_placements(rec: Record, chunks: List[int], is_first: bool = True) -> int:
     #count possible placements for first chunk, then repeat recursively for each placement
     count = 0
-    min_left_shift = 0 if len(chunks) == 1 else sum(chunks[1:]) + (len(chunks) - 1)
+    chunks_num = len(chunks)
+    min_left_shift = sum(chunks[1:]) + (chunks_num - 1)
     #if it's not the first chunk we must leave a gap after previous chunk
     full_width = len(rec.value)
     chunk_width = chunks[0]
@@ -33,11 +50,11 @@ def count_placements(rec: Record, chunks: List[int], is_first: bool = True) -> i
             break
         is_bad_match = badmap & (rec.bad | rec.unknown) == badmap
         if is_bad_match:
-            if len(chunks) > 1:
+            if chunks_num > 1:
                 count += count_placements(Record(rec.value[-left_shift:]), chunks[1:], False)
             else:
                 #if it's the last chunk - check if there is clear gap trailing without uncounted '#'
-                is_empty_trail = rec.bad & (2**left_shift - 1) == 0
+                is_empty_trail = rec.bad & ((1 << left_shift) - 1) == 0
                 if is_empty_trail:
                     count += 1
     return count
@@ -70,11 +87,11 @@ def print_placements(rec: Record, chunks: List[int], is_first: bool = True) -> L
                     output.append(badmap_str)
     return output
 
-
 input = parse_input('input.txt')
-counts = []
+cProfile.run('count_placements(input[0][0], input[0][1])')
+'''counts = []
 for x,y in input:
     c = count_placements(x,y)
     print(c)
     counts.append(c)
-print(sum(counts))
+print(sum(counts))'''
