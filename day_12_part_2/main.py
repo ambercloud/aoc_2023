@@ -31,30 +31,29 @@ def parse_input(filename: str) -> List[tuple[str,List[int]]]:
         repdata = repdata.removesuffix('\n')
         repdata = repdata + (',' + repdata) * 4
         repdata = [int(x) for x in repdata.split(',')]
-        output.append((Record(springs), repdata))
+        output.append((springs, repdata))
     return output
 
-def count_placements(rec: Record, chunks: List[int], is_first: bool = True) -> int:
+def count_placements(rec: str, chunks: List[int], is_first: bool = True) -> int:
     #count possible placements for first chunk, then repeat recursively for each placement
     count = 0
     chunks_num = len(chunks)
-    min_left_shift = sum(chunks[1:]) + (chunks_num - 1)
     #if it's not the first chunk we must leave a gap after previous chunk
-    full_width = len(rec.value)
+    full_width = len(rec)
     chunk_width = chunks[0]
-    max_left_shift = full_width - chunk_width if is_first else full_width - chunk_width - 1
-    for left_shift in range(max_left_shift, -1 + min_left_shift, -1):
-        badmap = (2**chunk_width - 1) << left_shift
-        is_gap_available = (rec.bad >> (left_shift + chunk_width)) == 0
+    min_pos = 0 if is_first else 1
+    max_pos = full_width - (sum(chunks[1:]) + (chunks_num - 1) + chunk_width)
+    for pos in range(min_pos, max_pos + 1):
+        is_gap_available = rec[:pos].find('#') == -1
         if not is_gap_available:
             break
-        is_bad_match = badmap & (rec.bad | rec.unknown) == badmap
+        is_bad_match = rec[pos:pos+chunk_width].find('.') == -1
         if is_bad_match:
             if chunks_num > 1:
-                count += count_placements(Record(rec.value[-left_shift:]), chunks[1:], False)
+                count += count_placements(rec[pos+chunk_width:], chunks[1:], False)
             else:
                 #if it's the last chunk - check if there is clear gap trailing without uncounted '#'
-                is_empty_trail = rec.bad & ((1 << left_shift) - 1) == 0
+                is_empty_trail = rec[pos+chunk_width:].find('#') == -1
                 if is_empty_trail:
                     count += 1
     return count
