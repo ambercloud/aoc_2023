@@ -12,8 +12,10 @@ def parse_input(filename: str) -> List[tuple[str,List[int]]]:
         output.append((springs, repdata))
     return output
 
-def count_placements(rec: str, chunks: List[int], cache: dict = {}, is_first: bool = True) -> int:
+def count_placements(rec: str, chunks: List[int], cache: dict|None = None, is_first: bool = True) -> int:
     #count possible placements for first chunk, then repeat recursively for each placement
+    if cache is None:
+        cache = {}
     count = 0
     chunks_num = len(chunks)
     #if it's not the first chunk we must leave a gap after previous chunk
