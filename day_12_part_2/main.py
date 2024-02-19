@@ -12,27 +12,29 @@ def parse_input(filename: str) -> List[tuple[str,List[int]]]:
         output.append((springs, repdata))
     return output
 
-def count_placements(rec: str, chunks: List[int], is_first: bool = True) -> int:
+def count_placements(rec: str, chunks: List[int], cache: dict = {}, is_first: bool = True) -> int:
     #count possible placements for first chunk, then repeat recursively for each placement
     count = 0
     chunks_num = len(chunks)
+    #if it's not the first chunk we must leave a gap after previous chunk
     full_width = len(rec)
     chunk_width = chunks[0]
-    #if it's not the first chunk we must leave a gap after previous chunk
     min_pos = 0 if is_first else 1
     max_pos = full_width - (sum(chunks[1:]) + (chunks_num - 1) + chunk_width)
     for pos in range(min_pos, max_pos + 1):
-        #check if the gap is present or if it's spoiled by unwanted '#'
         is_gap_available = rec[:pos].find('#') == -1
         if not is_gap_available:
-            #if there's no gap there's no need to check further, all next checks fail
             break
-        #check if current position can fit contageous chunk of '#'
         is_bad_match = rec[pos:pos+chunk_width].find('.') == -1
         if is_bad_match:
             if chunks_num > 1:
-                #count next chunks placements
-                count += count_placements(rec[pos+chunk_width:], chunks[1:], False)
+                key = (rec[pos+chunk_width:], str(chunks[1:]))
+                if key in cache:
+                    remainder = cache[key]
+                else:
+                    remainder = count_placements(rec[pos+chunk_width:], chunks[1:], cache, False)
+                    cache[key] = remainder
+                count += remainder
             else:
                 #if it's the last chunk - check if there is clear gap trailing without uncounted '#'
                 is_empty_trail = rec[pos+chunk_width:].find('#') == -1
