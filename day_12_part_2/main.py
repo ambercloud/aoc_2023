@@ -27,8 +27,8 @@ def count_placements(rec: str, chunks: List[int], cache: dict|None = None, is_fi
         is_gap_available = rec[:pos].find('#') == -1
         if not is_gap_available:
             break
-        is_bad_match = rec[pos:pos+chunk_width].find('.') == -1
-        if is_bad_match:
+        is_match = rec[pos:pos+chunk_width].find('.') == -1
+        if is_match:
             if chunks_num > 1:
                 key = (rec[pos+chunk_width:], str(chunks[1:]))
                 if key in cache:
