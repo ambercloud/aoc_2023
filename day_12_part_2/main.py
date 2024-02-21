@@ -1,27 +1,13 @@
 from typing import List
-from dataclasses import dataclass
-
-class Record:
-    def __init__(self, value: str, chunks: List[int]) -> None:
-        self.pattern = value
-        self.chunks = chunks[:]
-    
-    def __repr__(self) -> str:
-        return f"Record({self.pattern}, {self.chunks})"
-    
-@dataclass
-class ChunkPlacements:
-    placements: List[str]
-    chunk: str
 
 def parse_input(filename: str) -> List[tuple[str,List[int]]]:
     f = open(filename, 'r', encoding='utf-8')
     output = []
     for line in f:
         springs, _, repdata = line.partition(' ')
-        #springs = springs + ('?'+springs)*4
+        springs = springs + ('?'+springs)*4
         repdata = repdata.removesuffix('\n')
-        #repdata = repdata + (',' + repdata) * 4
+        repdata = repdata + (',' + repdata) * 4
         repdata = [int(x) for x in repdata.split(',')]
         output.append((springs, repdata))
     return output
@@ -58,14 +44,10 @@ def count_placements(rec: str, chunks: List[int], cache: dict|None = None, is_fi
                     count += 1
     return count
 
-
 input = parse_input('input.txt')
 counts = []
-for x in input:
-    count = count_placements(x)
-    counts.append(count)
+for x,y in input:
+    c = count_placements(x,y)
+    print(c)
+    counts.append(c)
 print(sum(counts))
-k = open('incorrect.txt', 'w', encoding='utf-8')
-for x in counts:
-    k.write(f'{x}\n')
-k.write(f'{sum(counts)}\n')
