@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List
-from copy import deepcopy
+from itertools import chain, accumulate
 
 @dataclass
 class Ray:
@@ -54,7 +54,7 @@ class Field:
         self.x = x
         self.y = y
         self.type = type
-        self.is_energized: bool = False
+        self.is_energized: int = 0
         self._ray_cache = set()
         match type:
             case '.':
@@ -79,6 +79,10 @@ class Field:
 
     def __repr__(self) -> str:
         return f"'{self.type}'"
+    
+    def reset(self) -> None:
+        self._ray_cache.clear()
+        self.is_energized = 0
 
 def parse_input(filename: str) -> List[List[Field]]:
     output = []
@@ -94,19 +98,19 @@ def run_rays(rays: List[Ray], scene: List[List[Field]]) -> None:
         rays_new: List[Ray] = []
         for r in rays:
             current_field = scene[r.y][r.x]
-            current_field.is_energized = True
+            current_field.is_energized = 1
             rays_new.extend(current_field.ray_handler(r))
         rays_new = [r for r in rays_new if r.x in range(xmax) and r.y in range(ymax)]
         rays = rays_new
 
-def count_energized(r: Ray, s: List[List[Field]]):
-    scene = deepcopy(s)
+def count_energized(r: Ray, scene: List[List[Field]]):
     r_id = str(r)
     rays = [r]
     run_rays(rays, scene)
-    energized = [[x.is_energized for x in row] for row in scene]
-    energized_count = sum([row.count(True) for row in energized])
+    energized_count = sum((field.is_energized for field in chain.from_iterable(scene)))
     print(f'{r_id}, {energized_count}')
+    for field in chain.from_iterable(scene):
+        field.reset()
     return energized_count
 
 scene = parse_input('input.txt')
