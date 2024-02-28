@@ -25,7 +25,7 @@ def check_mirrored_list(input: List[str], split_point: int) -> List[bool]:
 
 Direction = Enum('Direction', ['h', 'v'])
 
-def check_mirrored_matrix(input: List[List[str]], split_point: int, direction: str) -> List[List[bool]]:
+def check_mirrored_matrix(input: List[List[str]], split_point: int, direction: Direction) -> List[List[bool]]:
     output = [[None for x in line] for line in input]
     if direction == 'v':
         for i in range(len(input)):
