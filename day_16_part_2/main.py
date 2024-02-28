@@ -119,6 +119,6 @@ rays += [Ray(x, 0, 0, 1) for x in range(len(scene[0]))]
 rays += [Ray(x, len(scene) - 1, 0, -1) for x in range(len(scene[0]))]
 rays += [Ray(0, x, 1, 0) for x in range(len(scene))]
 rays += [Ray(len(scene[0]) - 1, x, -1, 0) for x in range(len(scene))]
-energized = [count_energized(r, scene) for r in rays]
+energized = (count_energized(r, scene) for r in rays)
 print(max(energized))
 pass
