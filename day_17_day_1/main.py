@@ -1,7 +1,6 @@
 from __future__ import annotations
-from typing import List
-from dataclasses import dataclass, field, fields
-from math import inf as INF
+from typing import List, Any
+from dataclasses import dataclass, field
 from functools import total_ordering
 import heapq
 import itertools
@@ -44,7 +43,7 @@ class Node:
     y: int
     cost: int
     visited: bool = False
-    min_cost_to_reach: int|float = INF
+    min_cost_to_reach: dict[tuple[int, int]: int] = field(default_factory=dict)
     neighbours: list[Node] = field(default_factory=list)
 
     def __hash__(self) -> int:
@@ -62,8 +61,11 @@ class Node:
     def __lt__(self, other: Node) -> bool:
         return (self.min_cost_to_reach, self.cost) < (other.min_cost_to_reach, other.cost)
     
-    def __eq__(self, other: Node) -> bool:
-        return fields(self) == fields(other)
+    def __eq__(self, other: Any) -> bool:
+        if type(other) is Node:
+            return (self.x, self.y) == (other.x, other.y)
+        else:
+            return False
 
 
 def parse_input(filename) -> List[List[Node]]:
@@ -89,30 +91,42 @@ def connect_nodes(nodes: List[List[Node]]) -> None:
 
 def mark_min_cost_to_reach(nodes: List[List[Node]], start: Node) -> None:
     nodes_to_check = PQueue()
-    start.min_cost_to_reach = 0
+    mc_key = (start.x, start.y)
+    start.min_cost_to_reach[mc_key] = 0
     current = start
     while current:
         current.visited = True
         unchecked = [x for x in current.neighbours if not x.visited]
         for n in unchecked:
-            n.min_cost_to_reach = min(n.min_cost_to_reach, current.min_cost_to_reach + n.cost)
+            if mc_key in n.min_cost_to_reach:
+                n.min_cost_to_reach[mc_key] = min(n.min_cost_to_reach[mc_key], current.min_cost_to_reach[mc_key] + n.cost)
+            else:
+                n.min_cost_to_reach[mc_key] = current.min_cost_to_reach[mc_key] + n.cost
             try:
                 nodes_to_check.remove_task(n)
             except KeyError:
                 pass
-            nodes_to_check.add_task(n, n.min_cost_to_reach)
+            nodes_to_check.add_task(n, n.min_cost_to_reach[mc_key])
         try:
             current = nodes_to_check.pop_task()
         except KeyError:
             break
     pass
 
-def mark_path(nodes: List[List[Node]], finish: Node) -> List[List[str]]:
+def find_path(nodes: List[List[Node]], start: Node, finish: Node) -> List[Node]:
+    #find the path. Go in steps from finish node to the next with minimal total cost.
+    current = start
+    f_key = (finish.x, finish.y)
+    path: List[Node] = [current]
+    while not current.min_cost_to_reach[f_key] == 0:
+        current = min(current.neighbours, key = lambda node: node.min_cost_to_reach[f_key])
+        path.append(current)
+    return path
+
+def mark_path(nodes: List[List[Node]], path: List[Node]) -> List[List[str]]:
     marked_output = [[str(node.cost) for node in row] for row in nodes]
-    current = finish
-    while not current.min_cost_to_reach == 0:
-        marked_output[current.y][current.x] = 'x'
-        current = min(current.neighbours, key = lambda node: node.min_cost_to_reach)
+    for node in path:
+        marked_output[node.y][node.x] = 'x'
     return marked_output
 
 def print_debug(input: List[List[str]]) -> None:
@@ -124,6 +138,7 @@ def print_debug(input: List[List[str]]) -> None:
 nodes = parse_input('input.txt')
 connect_nodes(nodes)
 mark_min_cost_to_reach(nodes, nodes[0][0])
-print_debug(mark_path(nodes, nodes[-1][-1]))
+path = find_path(nodes, nodes[-1][-1], nodes[0][0])
+print_debug(mark_path(nodes, path))
 
 pass
