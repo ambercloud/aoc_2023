@@ -89,7 +89,13 @@ def connect_nodes(nodes: List[List[Node]]) -> None:
             for x_neighbor, y_neighbor in gen_neighbours(x_origin, y_origin, xrange, yrange):
                 node.neighbours.append(nodes[y_neighbor][x_neighbor])
 
-def mark_min_cost_to_reach(nodes: List[List[Node]], start: Node) -> None:
+def mark_min_cost_to_reach(nodes: List[List[Node]], start: Node, is_calculated:set = set()) -> None:
+    #marks min distance for 
+    #skip if was already calculated
+    if (start.x, start.y) in is_calculated:
+        return
+    else:
+        is_calculated.add((start.x, start.y))
     nodes_to_check = PQueue()
     mc_key = (start.x, start.y)
     start.min_cost_to_reach[mc_key] = 0
@@ -111,17 +117,20 @@ def mark_min_cost_to_reach(nodes: List[List[Node]], start: Node) -> None:
             current = nodes_to_check.pop_task()
         except KeyError:
             break
-    pass
 
 def find_path(nodes: List[List[Node]], start: Node, finish: Node) -> List[Node]:
     #find the path. Go in steps from finish node to the next with minimal total cost.
+    mark_min_cost_to_reach(nodes, start)
     current = start
     f_key = (finish.x, finish.y)
     path: List[Node] = [current]
     while not current.min_cost_to_reach[f_key] == 0:
         current = min(current.neighbours, key = lambda node: node.min_cost_to_reach[f_key])
         path.append(current)
-    return path
+    return [x for x in reversed(path)]
+
+def find_curvy_path(nodes: List[List[Node]], start: Node, finish: Node) -> List[Node]:
+
 
 def mark_path(nodes: List[List[Node]], path: List[Node]) -> List[List[str]]:
     marked_output = [[str(node.cost) for node in row] for row in nodes]
