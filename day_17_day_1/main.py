@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import List, Any
+from typing import List, NamedTuple, Iterator
 from dataclasses import dataclass, field
-from functools import total_ordering
+from enum import Enum
 import heapq
 import itertools
 
@@ -36,118 +36,86 @@ class PQueue:
                 return task
         raise KeyError('pop from an empty priority queue')
 
-@dataclass
-@total_ordering
-class Node:
+class Coords(NamedTuple):
     x: int
     y: int
-    cost: int
-    visited: bool = False
-    min_cost_to_reach: dict[tuple[int, int]: int] = field(default_factory=dict)
-    neighbours: list[Node] = field(default_factory=list)
 
-    def __hash__(self) -> int:
-        return f'{self.x}:{self.y}'.__hash__()
+class Direction(Enum):
+    n = 1
+    e = 2
+    s = 3
+    w = 4
+
+@dataclass
+class Node:
+    xy: Coords
+    min_distance_from: dict[Coords: int] = field(default_factory=dict)
+    #edges: node, distance, direction
+    outs: list[tuple[Node, int, Direction]] = field(default_factory=list) #outward edge: node, distance, direction
+    ins: list[tuple[Node, int, Direction]] = field(default_factory=list) #inward edge: node, distance, direction
     
     #stop debugger from stucking on circular refs
-    def __repr__(self, depth = 1) -> str:
-        if depth > 0:
-            return (f'Node({self.x}:{self.y}, {self.cost}, {'✔' if self.visited else '✖'}, '
-                    f'{self.min_cost_to_reach}, {[x.__repr__(depth - 1) for x in self.neighbours]})')
-        else:
-            return (f'Node({self.x}:{self.y}, {self.cost}, {'✔' if self.visited else '✖'}, '
-                    f'{self.min_cost_to_reach}, […])')            
-        
-    def __lt__(self, other: Node) -> bool:
-        return (self.min_cost_to_reach, self.cost) < (other.min_cost_to_reach, other.cost)
-    
-    def __eq__(self, other: Any) -> bool:
-        if type(other) is Node:
-            return (self.x, self.y) == (other.x, other.y)
-        else:
-            return False
+    def __repr__(self) -> str:
+        return (f'Node({self.xy})')
 
+def gen_neighbours(xo: int, yo: int, xrange: range, yrange: range) -> Iterator[tuple[int, int, Direction]]:
+    dir = Direction
+    around = ((xo, yo - 1, dir.n), (xo + 1, yo, dir.e), (xo, yo + 1, dir.s), (xo - 1, yo, dir.w))
+    for x, y, d in around:
+        if x in xrange and y in yrange:
+            yield x, y, d
 
 def parse_input(filename) -> List[List[Node]]:
     f = open(filename, 'r', encoding='utf-8')
-    output = []
+    costs = []
     for y, line in enumerate(f):
-        output.append([Node(x, y, int(cost)) for x, cost in enumerate(line.removesuffix('\n'))])
-    return output
+        costs.append([int(x) for x in line.removesuffix('\n')])
 
-def gen_neighbours(xo: int, yo: int, xrange: range, yrange: range):
-    around = ((xo - 1, yo), (xo + 1, yo), (xo, yo - 1), (xo, yo + 1))
-    for x, y in around:
-        if x in xrange and y in yrange:
-            yield x, y
+    nodes: dict[Coords, Node] = {}
+    for y, row in enumerate(costs):
+        for x, cost in enumerate(row):
+            node = Node((x, y))
+            nodes[(x, y)] = node
 
-def connect_nodes(nodes: List[List[Node]]) -> None:
-    xrange = range(len(nodes[0]))
-    yrange = range(len(nodes))
-    for y_origin, row in enumerate(nodes):
-        for x_origin, node in enumerate(row):
-            for x_neighbor, y_neighbor in gen_neighbours(x_origin, y_origin, xrange, yrange):
-                node.neighbours.append(nodes[y_neighbor][x_neighbor])
+    xmax = len(costs[0])
+    ymax = len(costs)
+    
+    for y, row in enumerate(costs):
+        for x, cost in enumerate(row):
+            node = nodes[(x, y)]
+            for xn, yn, d in gen_neighbours(x, y, range(0, xmax), range(0, ymax)):
+                neighbour = nodes[(xn, yn)]
+                neighbour_cost = costs[yn][xn]
+                #create edges: outward edge in current node to every neighbour and inward edge from current node to every neighbour
+                node.outs.append((neighbour, neighbour_cost, d))
+                neighbour.ins.append((node, cost, d))
 
-def mark_min_cost_to_reach(nodes: List[List[Node]], start: Node, is_calculated:set = set()) -> None:
-    #marks min distance for 
-    #skip if was already calculated
-    if (start.x, start.y) in is_calculated:
-        return
-    else:
-        is_calculated.add((start.x, start.y))
+    return nodes
+
+def mark_min_cost_to_reach(nodes: dict[Coords, Node], origin: Node) -> None:
+    #marks min distance from origin to every other node, modified Dijkstra algorithm
     nodes_to_check = PQueue()
-    mc_key = (start.x, start.y)
-    start.min_cost_to_reach[mc_key] = 0
-    current = start
+    visited: set[Coords] = set()
+    o_xy = origin.xy
+    origin.min_distance_from[o_xy] = 0
+    current = origin
     while current:
-        current.visited = True
-        unchecked = [x for x in current.neighbours if not x.visited]
-        for n in unchecked:
-            if mc_key in n.min_cost_to_reach:
-                n.min_cost_to_reach[mc_key] = min(n.min_cost_to_reach[mc_key], current.min_cost_to_reach[mc_key] + n.cost)
-            else:
-                n.min_cost_to_reach[mc_key] = current.min_cost_to_reach[mc_key] + n.cost
+        visited.add(current.xy)
+        unchecked = [(neighbour, distance, direction) for neighbour, distance, direction in current.outs if not neighbour.xy in visited]
+        for neighbour, distance, direction in unchecked:
+            if not o_xy in neighbour.min_distance_from or (current.min_distance_from[o_xy] + distance) < neighbour.min_distance_from[o_xy]:
+                neighbour.min_distance_from[o_xy] = current.min_distance_from[o_xy] + distance
             try:
-                nodes_to_check.remove_task(n)
+                nodes_to_check.remove_task(neighbour.xy)
             except KeyError:
                 pass
-            nodes_to_check.add_task(n, n.min_cost_to_reach[mc_key])
+            nodes_to_check.add_task(neighbour.xy, neighbour.min_distance_from[o_xy])
         try:
-            current = nodes_to_check.pop_task()
+            next_xy = nodes_to_check.pop_task()
+            current = nodes[next_xy]
         except KeyError:
             break
 
-def find_path(nodes: List[List[Node]], start: Node, finish: Node) -> List[Node]:
-    #find the path. Go in steps from finish node to the next with minimal total cost.
-    mark_min_cost_to_reach(nodes, start)
-    current = start
-    f_key = (finish.x, finish.y)
-    path: List[Node] = [current]
-    while not current.min_cost_to_reach[f_key] == 0:
-        current = min(current.neighbours, key = lambda node: node.min_cost_to_reach[f_key])
-        path.append(current)
-    return [x for x in reversed(path)]
-
-def find_curvy_path(nodes: List[List[Node]], start: Node, finish: Node) -> List[Node]:
-
-
-def mark_path(nodes: List[List[Node]], path: List[Node]) -> List[List[str]]:
-    marked_output = [[str(node.cost) for node in row] for row in nodes]
-    for node in path:
-        marked_output[node.y][node.x] = 'x'
-    return marked_output
-
-def print_debug(input: List[List[str]]) -> None:
-    d = open('debug.txt', 'w', encoding='utf-8')
-    for row in input:
-        line = ''.join(row) + '\n'
-        d.write(line)
-
 nodes = parse_input('input.txt')
-connect_nodes(nodes)
-mark_min_cost_to_reach(nodes, nodes[0][0])
-path = find_path(nodes, nodes[-1][-1], nodes[0][0])
-print_debug(mark_path(nodes, path))
-
+mark_min_cost_to_reach(nodes, nodes[(0,0)])
 pass
