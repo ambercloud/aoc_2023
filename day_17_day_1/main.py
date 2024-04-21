@@ -64,15 +64,17 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     NodeData = tuple[int|float, List[Edge]]
 
     def backtrack(min_dist_by_path_length: List[dict[Coords, NodeData]], path_length: int, steps_back: int, last_node: Coords) -> List[List[Edge]]:
+        #take a last node of a pathes of specified length and go back for a specified amount of steps
+        #return a list of paths
         paths_list = [[edge] for edge in min_dist_by_path_length[path_length][last_node][1]]
         path_length = path_length - 1
         steps_back = steps_back - 1
         if path_length and steps_back:
             extended_paths = []
             for path in paths_list:
-                edge = path[-1]
+                edge = path[0]
                 previous_paths = backtrack(min_dist_by_path_length, path_length, steps_back, edge.origin)
-                extended_paths.extend([path + prev_path for prev_path in previous_paths])
+                extended_paths.extend([prev_path + path for prev_path in previous_paths])
             paths_list = extended_paths
         return paths_list
 
@@ -94,7 +96,6 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     finish_distances = [x[finish] for x in min_dist_by_path_length]
     index, shortest = min(enumerate(finish_distances), key = lambda x: x[1][0])
     shortest_paths = backtrack(min_dist_by_path_length, index, index, finish)
-    shortest_paths = [[y for y in reversed(x)] for x in shortest_paths]
     return shortest_paths
 
 
