@@ -82,23 +82,43 @@ def build_graph(costs: List[List[int]]) -> tuple[dict[Coords, Node], dict[tuple[
 
     return nodes, edges
 
-def find_optimal_path(nodes: dict[Coords, Node], edges: EdgeCollection, start: Coords, finish: Coords) -> List[Edge]:
+def find_optimal_path(nodes: dict[Coords, Node], edges: EdgeCollection, start: Coords, finish: Coords, max_straight: int) -> List[Edge]:    
     #calc min distances first, then restore the path
     distances: dict[Coords, List[int]] = {}
-    previous: dict[Coords, List[List[Edge]]] = {}
+    predecessors: dict[Coords, List[List[Edge]]] = {}
     for node in nodes.values():
         distances[node.xy] = [float('inf')] * (len(nodes) - 1)
-        previous[node.xy] = [[]] * (len(nodes) - 1)
+        predecessors[node.xy] = [[]] * (len(nodes) - 1)
     distances[start][0] = 0
+
+    def is_too_straight(path_steps: int, max_straight: int, edge: Edge) -> bool:
+        #Backtrack and check if the tail is straight. If it is, check if there are multiple tails with the same total distance.
+        #In that case they won't be straight
+        if path_steps < max_straight:
+            return False
+        tail = [edge]
+        has_forks = False
+        for i in range(path_steps, (path_steps - max_straight), -1):
+            preds = predecessors[tail[-1].origin][i - 1]
+            if len(preds) > 1:
+                has_forks = True
+            tail.append(preds[0])
+        dir = edge.direction
+        return True if all((e.direction == dir for e in tail)) and not has_forks else False
+
     for i in range(1, len(nodes) - 1):
         for edge in edges._orig_dest.values():
+            #if the edge doesn't reduce distance - carry on
             if distances[edge.destination][i] < distances[edge.origin][i - 1] + edge.distance:
                 continue
-            elif distances[edge.destination][i] > distances[edge.origin][i - 1] + edge.distance:
+            #otherwise check if it doesn't make the path too straight
+            if is_too_straight(i, max_straight, edge):
+                continue
+            if distances[edge.destination][i] > distances[edge.origin][i - 1] + edge.distance:
                 distances[edge.destination][i] = distances[edge.origin][i - 1] + edge.distance
-                previous[edge.destination][i] = [edge]
+                predecessors[edge.destination][i] = [edge]
             elif distances[edge.destination][i] == distances[edge.origin][i - 1] + edge.distance:
-                previous[edge.destination][i].append(edge)
+                predecessors[edge.destination][i].append(edge)
             else:
                 raise Exception('Something wrong')
     #restore path
@@ -106,7 +126,7 @@ def find_optimal_path(nodes: dict[Coords, Node], edges: EdgeCollection, start: C
     path: List[Edge] = []
     current = finish
     for i in range(steps_num, 0, -1):
-        edge = previous[current][i][0]
+        edge = predecessors[current][i][0]
         path.append(edge)
         current = edge.origin
     path = [x for x in reversed(path)]
@@ -118,5 +138,5 @@ costs = parse_input('input.txt')
 nodes, edges = build_graph(costs)
 start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
-path = find_optimal_path(nodes, edges, start, finish)
+path = find_optimal_path(nodes, edges, start, finish, 4)
 pass
