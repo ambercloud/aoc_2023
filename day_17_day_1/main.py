@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Iterator, Any
+from typing import List, NamedTuple, Iterator, TypeAlias
 from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict
@@ -16,41 +16,15 @@ class Direction(Enum):
 class Edge(NamedTuple):
     origin: Coords
     destination: Coords
-    distance: Coords
+    distance: int
     direction: Direction
 
-@dataclass
+'''@dataclass
 class Node:
     xy: Coords
     ins: list[Edge]
     outs: list[Edge]
-    distance_from: defaultdict[Coords, int]
-
-class EdgeCollection:
-    def __init__(self) -> None:
-        self._orig_dest: dict[tuple[Coords, Coords], Edge] = {}
-        self._orig: defaultdict[Coords, set[Edge]] = defaultdict(set)
-        self._dest: defaultdict[Coords, set[Edge]] = defaultdict(set)
-
-    def add(self, edge: Edge) -> None:
-        self._orig_dest[(edge.origin, edge.destination)] = edge
-        self._orig[edge.origin].add(edge)
-        self._dest[edge.destination].add(edge)
-
-    def delete(self, orig: Coords, dest: Coords) -> None:
-        edge = self._orig_dest[(orig, dest)]
-        del self._orig_dest[(orig, dest)]
-        self._orig[orig].remove(edge)
-        self._dest[dest].remove(edge)
-
-    def get_by_orig_dest(self, orig: Coords, dest: Coords) -> Edge:
-        return self._orig_dest[(orig, dest)]
-
-    def get_by_orig(self, orig: Coords) -> List[Edge]:
-        return [x for x in self._orig[orig]]
-
-    def get_by_dest(self, dest: Coords) -> List[Edge]:
-        return [x for x in self._dest[dest]]
+    distance_from: defaultdict[Coords, int]'''
 
 def parse_input(filename: str) -> List[List[int]]:
     f = open(filename, mode='r', encoding='utf-8')
@@ -59,7 +33,7 @@ def parse_input(filename: str) -> List[List[int]]:
         output.append([int(char) for char in line.removesuffix('\n')])
     return output
 
-def build_graph(costs: List[List[int]]) -> tuple[dict[Coords, Node], dict[tuple[Coords, Coords], Edge]]:
+def build_graph(costs: List[List[int]]) -> tuple[List[Coords], List[Edge]]:
     xmax = len(costs[0])
     ymax = len(costs)
     def neighbours(coords: Coords) -> Iterator[tuple[Coords, Direction]]:
@@ -69,68 +43,59 @@ def build_graph(costs: List[List[int]]) -> tuple[dict[Coords, Node], dict[tuple[
             if x in range(xmax) and y in range(ymax):
                 yield (Coords(x, y), dir)
 
-    nodes: dict[Coords, Node] = {}
-    edges = EdgeCollection()
+    nodes: List[Coords] = []
+    edges: List[Edge] = []
 
     for y, row in enumerate(costs):
         for x, cost in enumerate(row):
             xy = Coords(x, y)
-            nodes[xy] = Node(xy, [], [], defaultdict(lambda : float('inf')))
+            nodes.append(xy)
             for nxy, dir in neighbours(xy):
                 edge = Edge(xy, nxy, costs[nxy.y][nxy.x], dir)
-                edges.add(edge)
+                edges.append(edge)
 
     return nodes, edges
 
-def find_optimal_path(nodes: dict[Coords, Node], edges: EdgeCollection, start: Coords, finish: Coords, max_straight: int) -> List[Edge]:    
+def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, finish: Coords) -> List[Edge]:
     #calc min distances first, then restore the path
-    distances: dict[Coords, List[int]] = {}
-    predecessors: dict[Coords, List[List[Edge]]] = {}
-    for node in nodes.values():
-        distances[node.xy] = [float('inf')] * (len(nodes) - 1)
-        predecessors[node.xy] = [[]] * (len(nodes) - 1)
-    distances[start][0] = 0
+    #for a path of every length(in number of edges it consists of) we calculate minimal distance we can reach every node and last edge in the path (or multiple edges)
+    #obviously not every node is reachable in arbitrary amount of steps
+    INF = float('inf')
+    NodeData = tuple[int|float, List[Edge]]
 
-    def is_too_straight(path_steps: int, max_straight: int, edge: Edge) -> bool:
-        #Backtrack and check if the tail is straight. If it is, check if there are multiple tails with the same total distance.
-        #In that case they won't be straight
-        if path_steps < max_straight:
-            return False
-        tail = [edge]
-        has_forks = False
-        for i in range(path_steps, (path_steps - max_straight), -1):
-            preds = predecessors[tail[-1].origin][i - 1]
-            if len(preds) > 1:
-                has_forks = True
-            tail.append(preds[0])
-        dir = edge.direction
-        return True if all((e.direction == dir for e in tail)) and not has_forks else False
+    def backtrack(min_dist_by_path_length: List[dict[Coords, NodeData]], path_length: int, steps_back: int, last_node: Coords) -> List[List[Edge]]:
+        paths_list = [[edge] for edge in min_dist_by_path_length[path_length][last_node][1]]
+        path_length = path_length - 1
+        steps_back = steps_back - 1
+        if path_length and steps_back:
+            extended_paths = []
+            for path in paths_list:
+                edge = path[-1]
+                previous_paths = backtrack(min_dist_by_path_length, path_length, steps_back, edge.origin)
+                extended_paths.extend([path + prev_path for prev_path in previous_paths])
+            paths_list = extended_paths
+        return paths_list
 
-    for i in range(1, len(nodes) - 1):
-        for edge in edges._orig_dest.values():
-            #if the edge doesn't reduce distance - carry on
-            if distances[edge.destination][i] < distances[edge.origin][i - 1] + edge.distance:
+    max_path_length = len(nodes) - 1
+    min_dist_by_path_length: List[dict[Coords, NodeData]] = [{xy: (INF, []) for xy in nodes} for _ in range(max_path_length + 1)]
+    min_dist_by_path_length[0][start] = (0, [None])
+    for i in range(1, max_path_length + 1):
+        for edge in edges:
+            current_distance = min_dist_by_path_length[i][edge.destination][0]
+            new_distance = min_dist_by_path_length[i - 1][edge.origin][0] + edge.distance
+            if new_distance == INF and current_distance == INF:
                 continue
-            #otherwise check if it doesn't make the path too straight
-            if is_too_straight(i, max_straight, edge):
-                continue
-            if distances[edge.destination][i] > distances[edge.origin][i - 1] + edge.distance:
-                distances[edge.destination][i] = distances[edge.origin][i - 1] + edge.distance
-                predecessors[edge.destination][i] = [edge]
-            elif distances[edge.destination][i] == distances[edge.origin][i - 1] + edge.distance:
-                predecessors[edge.destination][i].append(edge)
-            else:
-                raise Exception('Something wrong')
-    #restore path
-    steps_num, min_dist = min(enumerate(distances[finish]), key = lambda x: x[1])
-    path: List[Edge] = []
-    current = finish
-    for i in range(steps_num, 0, -1):
-        edge = predecessors[current][i][0]
-        path.append(edge)
-        current = edge.origin
-    path = [x for x in reversed(path)]
-    return path
+            if new_distance < current_distance:
+                min_dist_by_path_length[i][edge.destination] = (new_distance, [edge])
+            elif new_distance == current_distance:
+                min_dist_by_path_length[i][edge.destination][1].append(edge)
+    
+    #restore the shortest path
+    finish_distances = [x[finish] for x in min_dist_by_path_length]
+    index, shortest = min(enumerate(finish_distances), key = lambda x: x[1][0])
+    shortest_paths = backtrack(min_dist_by_path_length, index, index, finish)
+    shortest_paths = [[y for y in reversed(x)] for x in shortest_paths]
+    pass
 
 
 
@@ -138,5 +103,5 @@ costs = parse_input('input.txt')
 nodes, edges = build_graph(costs)
 start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
-path = find_optimal_path(nodes, edges, start, finish, 4)
+path = find_optimal_path(nodes, edges, start, finish)
 pass
