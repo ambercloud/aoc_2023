@@ -56,8 +56,8 @@ def build_graph(costs: List[List[int]]) -> tuple[List[Coords], List[Edge]]:
 
     return nodes, edges
 
-def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, finish: Coords) -> List[Edge]:
-    #calc min distances first, then restore the path
+def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, finish: Coords) -> List[List[Edge]]:
+    #calc min distances first, then restore the path of minimal distance (or multiple paths if there are more than one)
     #for a path of every length(in number of edges it consists of) we calculate minimal distance we can reach every node and last edge in the path (or multiple edges)
     #obviously not every node is reachable in arbitrary amount of steps
     INF = float('inf')
@@ -95,7 +95,7 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     index, shortest = min(enumerate(finish_distances), key = lambda x: x[1][0])
     shortest_paths = backtrack(min_dist_by_path_length, index, index, finish)
     shortest_paths = [[y for y in reversed(x)] for x in shortest_paths]
-    pass
+    return shortest_paths
 
 
 
