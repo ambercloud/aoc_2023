@@ -74,7 +74,8 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
             for path in paths_list:
                 edge = path[0]
                 previous_paths = backtrack(min_dist_by_path_length, path_length, steps_back, edge.origin)
-                extended_paths.extend([prev_path + path for prev_path in previous_paths])
+                #we have to check for u-turns here when reconstructing paths
+                extended_paths.extend([prev_path + path for prev_path in previous_paths if not (prev_path[-1].origin == edge.destination and prev_path[-1].destination == edge.origin)])
             paths_list = extended_paths
         return paths_list
 
@@ -136,5 +137,10 @@ costs = parse_input('input.txt')
 nodes, edges = build_graph(costs)
 start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
-path = find_optimal_path(nodes, edges, start, finish)
+shortest_paths = find_optimal_path(nodes, edges, start, finish)
+for path in shortest_paths:
+    p = [start]
+    for edge in path:
+        p.append((edge.destination.x, edge.destination.y))
+    print(p)
 pass
