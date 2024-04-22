@@ -78,6 +78,34 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
             paths_list = extended_paths
         return paths_list
 
+    def is_within_constrains(min_dist_by_path_length: List[dict[Coords, NodeData]], path_length: int, new_edge: Edge) -> bool:
+        max_straight = 4
+        #path with length of 1 is always within constrains and start node doesn't have predescessors so we just skip the checks
+        if path_length == 1:
+            return True
+        #path must have no 180-turns
+        previous_edges = min_dist_by_path_length[path_length - 1][new_edge.origin][1]
+        no_u_turn = [x for x in previous_edges if not (x.origin == new_edge.destination and x.destination == new_edge.origin)]
+        if len(no_u_turn) == 0:
+            return False
+        #path must have no straight parts over certain length
+        def is_straight(path: List[Edge]) -> bool:
+            direction = path[0].direction
+            for edge in path[1:]:
+                if edge.direction != direction:
+                    return False
+            return True
+
+        if path_length > max_straight:
+            possible_paths = backtrack(min_dist_by_path_length, path_length - 1, max_straight, new_edge.origin)
+            for path in possible_paths:
+                path.append(new_edge)
+            if all((is_straight(path) for path in possible_paths)):
+                return False
+
+        return True
+
+    #basically a Bellman-Ford algorithm
     max_path_length = len(nodes) - 1
     min_dist_by_path_length: List[dict[Coords, NodeData]] = [{xy: (INF, []) for xy in nodes} for _ in range(max_path_length + 1)]
     min_dist_by_path_length[0][start] = (0, [None])
@@ -86,6 +114,10 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
             current_distance = min_dist_by_path_length[i][edge.destination][0]
             new_distance = min_dist_by_path_length[i - 1][edge.origin][0] + edge.distance
             if new_distance == INF and current_distance == INF:
+                continue
+            if new_distance > current_distance:
+                continue
+            if not is_within_constrains(min_dist_by_path_length, i, edge):
                 continue
             if new_distance < current_distance:
                 min_dist_by_path_length[i][edge.destination] = (new_distance, [edge])
