@@ -63,6 +63,7 @@ def find_shortest_distance(nodes: List[Coords], edges: List[Edge], start: Coords
 
     INF = float('inf')
     previous: dict[Coords, int|float] = defaultdict(lambda: INF)
+    pre_previous: dict[Coords, int|float] = defaultdict(lambda: INF)
     shortest: dict[Coords, int|float] = defaultdict(lambda: INF)
     backlog: deque[dict[Coords, List[Coords]]] = deque([], maxlen=max_straight)
     previous[start] = 0
@@ -96,6 +97,7 @@ def find_shortest_distance(nodes: List[Coords], edges: List[Edge], start: Coords
         print(i)
         current = defaultdict(lambda: INF)
         previous_nodes: dict[Coords, List[Coords]] = {}
+        is_shortest_changed = False
         for edge in edges:
             curr_distance = current[edge.destination]
             new_distance = previous[edge.origin] + edge.distance
@@ -108,10 +110,14 @@ def find_shortest_distance(nodes: List[Coords], edges: List[Edge], start: Coords
                 previous_nodes[edge.destination] = [edge.origin]
                 if new_distance < shortest[edge.destination]:
                     shortest[edge.destination] = new_distance
+                    is_shortest_changed = True
             if new_distance != INF and new_distance == curr_distance:
                 if is_valid(edge):
                     previous_nodes[edge.destination].append(edge.origin)
         backlog.append(previous_nodes)
+        #if distances haven't changed we can stop trying further
+        if not is_shortest_changed:
+            break
         previous = current
 
     return shortest[finish]
