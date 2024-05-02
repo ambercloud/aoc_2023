@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Iterator, TypeAlias
+from typing import List, NamedTuple, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict
@@ -7,6 +7,8 @@ import cProfile
 class Coords(NamedTuple):
     x: int
     y: int
+    def __repr__(self) -> str:
+        return f'{self.x}:{self.y}'
 
 class Direction(Enum):
     n = 1
@@ -19,6 +21,9 @@ class Edge(NamedTuple):
     destination: Coords
     distance: int
     direction: Direction
+
+    def __repr__(self) -> str:
+        return f'({self.origin}-{self.destination},{self.distance},{self.direction.name})'
 
 '''@dataclass
 class Node:
@@ -47,10 +52,20 @@ def build_graph(costs: List[List[int]]) -> tuple[List[Coords], List[Edge]]:
     nodes: List[Coords] = []
     edges: List[Edge] = []
 
+    #create a list of nodes sorted by their distance from the start point (0,0)
+    nodes.append(Coords(0, 0))
+    for layer_num in range(1, max(xmax, ymax)):
+        if layer_num < ymax:
+            nodes.extend([Coords(x, layer_num) for x in range(0, layer_num)])
+        if layer_num < xmax:
+            nodes.extend([Coords(layer_num, y) for y in range(0, layer_num)])
+        if layer_num < xmax and layer_num < ymax:
+            nodes.append(Coords(layer_num,layer_num))
+
     for y, row in enumerate(costs):
         for x, cost in enumerate(row):
             xy = Coords(x, y)
-            nodes.append(xy)
+            #nodes.append(xy)
             for nxy, dir in neighbours(xy):
                 edge = Edge(xy, nxy, costs[nxy.y][nxy.x], dir)
                 edges.append(edge)
@@ -61,92 +76,68 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     #calc min distances first, then restore the path of minimal distance (or multiple paths if there are more than one)
     #for a path of every length(in number of edges it consists of) we calculate minimal distance we can reach every node and last edge in the path (or multiple edges)
     #obviously not every node is reachable in arbitrary amount of steps
-    INF = float('inf')
-    NodeData = tuple[int, List[Edge]]
-    DEFAULT_NODEDATA = (INF, [])
 
-    def backtrack(min_dist_by_path_length: List[dict[Coords, NodeData]], path_length: int, steps_back: int, last_node: Coords) -> List[List[Edge]]:
-        #take a last node of a pathes of specified length and go back for a specified amount of steps
-        #return a list of paths
-        paths_list = [[edge] for edge in min_dist_by_path_length[path_length][last_node][1]]
-        path_length = path_length - 1
-        steps_back = steps_back - 1
-        if path_length and steps_back:
-            extended_paths = []
-            for path in paths_list:
-                edge = path[0]
-                previous_paths = backtrack(min_dist_by_path_length, path_length, steps_back, edge.origin)
-                #we have to check for u-turns here when reconstructing paths
-                extended_paths.extend([prev_path + path for prev_path in previous_paths if not (prev_path[-1].origin == edge.destination and prev_path[-1].destination == edge.origin)])
-            paths_list = extended_paths
-        return paths_list
+    #group edges by their destination:
+    edges_by_origin: dict[Coords, List[Edge]] = defaultdict(list)
+    for edge in edges:
+        edges_by_origin[edge.origin].append(edge)
+    distances_by_path_steps: List[dict[Coords, int]] = [{start: 0}]
+    predecessors_by_path_steps: List[dict[Coords, List[Coords]]] = [{}]
+    shortest_distances: dict[Coords, int] = {}
 
-    def is_within_constrains(min_dist_by_path_length: List[dict[Coords, NodeData]], path_length: int, new_edge: Edge) -> bool:
-        max_straight = 4
-        #path with length of 1 is always within constrains and start node doesn't have predescessors so we just skip the checks
-        if path_length == 1:
-            return True
-        #path must have no 180-turns
-        previous_edges = min_dist_by_path_length[path_length - 1][new_edge.origin][1]
-        no_u_turn = [x for x in previous_edges if not (x.origin == new_edge.destination and x.destination == new_edge.origin)]
-        if len(no_u_turn) == 0:
-            return False
-        #path must have no straight parts over certain length
-        def is_straight(path: List[Edge]) -> bool:
-            direction = path[0].direction
-            for edge in path[1:]:
-                if edge.direction != direction:
-                    return False
-            return True
+    def backtrack(last_node: Coords, steps, index = -1) -> List[List[Coords]]:
+        if steps == 1:
+            return [[p] for p in predecessors_by_path_steps[index][last_node]]
+        else:
+            predecessors = predecessors_by_path_steps[index][last_node][:]
+            paths = []
+            for pred in predecessors:
+                backtracked = backtrack(pred, steps - 1, index - 1)
+                for path in backtracked:
+                    paths.append(path + [pred])
+            return paths
 
-        if path_length > max_straight:
-            possible_paths = backtrack(min_dist_by_path_length, path_length - 1, max_straight, new_edge.origin)
-            for path in possible_paths:
-                path.append(new_edge)
-            if all((is_straight(path) for path in possible_paths)):
-                return False
+    for i in range(1, len(nodes)):
+        previous_step_distances = distances_by_path_steps[i - 1]
+        current_step_distances: dict[Coords, int] = {}
+        current_step_predecessors: dict[Coords, List[Coords]] = {}
+        is_shortest_changed = False
 
-        return True
+        for prev_node, prev_distance in previous_step_distances.items():
+            outer_edges = edges_by_origin[prev_node]
+            for edge in outer_edges:
+                new_distance = prev_distance + edge.distance
+                curr_distance = current_step_distances.get(edge.destination, None)
 
-    #basically a Bellman-Ford algorithm
-    max_path_length = len(nodes) - 1
-    min_dist_by_path_length: List[dict[Coords, NodeData]] = [{} for _ in range(max_path_length + 1)]
-    min_dist_by_path_length[0][start] = (0, [None])
-    for i in range(1, max_path_length + 1):
-        print(i)
-        for edge in edges:
-            #get distance by node coordinates, if none was written - return infinity
-            current_distance = min_dist_by_path_length[i].get(edge.destination, DEFAULT_NODEDATA)[0]
-            new_distance = min_dist_by_path_length[i - 1].get(edge.origin, DEFAULT_NODEDATA)[0] + edge.distance
-            if new_distance == INF and current_distance == INF:
-                continue
-            if new_distance > current_distance:
-                continue
-            if not is_within_constrains(min_dist_by_path_length, i, edge):
-                continue
-            if new_distance < current_distance:
-                min_dist_by_path_length[i][edge.destination] = (new_distance, [edge])
-            elif new_distance == current_distance:
-                min_dist_by_path_length[i][edge.destination][1].append(edge)
-        
-    
-    #restore the shortest path
-    finish_distances = [x.get(finish, DEFAULT_NODEDATA) for x in min_dist_by_path_length]
-    index, shortest = min(enumerate(finish_distances), key = lambda x: x[1][0])
-    shortest_paths = backtrack(min_dist_by_path_length, index, index, finish)
-    return shortest_paths
+                if curr_distance is None or new_distance < curr_distance:
+                    current_step_distances[edge.destination] = new_distance
+                    current_step_predecessors[edge.destination] = [prev_node]
+                    #add shortest distance and trigger for early finish check
+                    if not edge.destination in shortest_distances or new_distance < shortest_distances[edge.destination]:
+                        shortest_distances[edge.destination] = new_distance
+                        is_shortest_changed = True
+                    continue
+                if new_distance == prev_distance:
+                    current_step_predecessors[edge.destination].append(prev_node)
+
+        if not is_shortest_changed:
+            break
+        distances_by_path_steps.append(current_step_distances)
+        predecessors_by_path_steps.append(current_step_predecessors)
+
+    #restore path
+    steps_num = [x[finish] if finish in x else None for x in distances_by_path_steps].index(shortest_distances[finish])
+    paths = [path + [finish] for path in backtrack(finish, steps_num, steps_num)]
+    pass
+    return paths
 
 
 
 costs = parse_input('input.txt')
 nodes, edges = build_graph(costs)
-start = (0,0)
+start = Coords(0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
-cProfile.run('find_optimal_path(nodes, edges, start, finish)')
-'''shortest_paths = find_optimal_path(nodes, edges, start, finish)
-for path in shortest_paths:
-    p = [start]
-    for edge in path:
-        p.append((edge.destination.x, edge.destination.y))
-    print(p)'''
+paths = find_optimal_path(nodes, edges, start, finish)
+for path in paths:
+    print(path)
 pass
