@@ -84,6 +84,7 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     distances_by_path_steps: List[dict[Coords, int]] = [{start: 0}]
     predecessors_by_path_steps: List[dict[Coords, List[Coords]]] = [{}]
     shortest_distances: dict[Coords, int] = {}
+    max_straight = 3
 
     def backtrack(last_node: Coords, steps, index = -1) -> List[List[Coords]]:
         if steps == 1:
@@ -97,17 +98,34 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
                     paths.append(path + [pred])
             return paths
 
-    for i in range(1, len(nodes)):
-        previous_step_distances = distances_by_path_steps[i - 1]
+    for i in range(len(nodes) - 1):
+        print(i)
+        previous_step_distances = distances_by_path_steps[i]
         current_step_distances: dict[Coords, int] = {}
         current_step_predecessors: dict[Coords, List[Coords]] = {}
         is_shortest_changed = False
 
         for prev_node, prev_distance in previous_step_distances.items():
             outer_edges = edges_by_origin[prev_node]
+            backtracked_paths = backtrack(prev_node, min(i, max_straight)) if i > 0 else []
             for edge in outer_edges:
                 new_distance = prev_distance + edge.distance
                 curr_distance = current_step_distances.get(edge.destination, None)
+
+                #validitychecks
+                #first is the check for 180-turns
+                #at step 0 there are no predecessors, skip
+                if i > 0:
+                    if all(edge.destination == path[-1] for path in backtracked_paths):
+                        continue
+                #second we need to check for straightness
+                #if all backtracked path are straight - we skip the edge
+                #check is performed by calculating absolute x or y distance between first node in backtracked path and edge.destination - next node candidate
+                #if by 3 steps the absolute difference in x or y coordinate is 3 - we moved only straight
+                if i >= max_straight:
+                    if all(abs(path[-max_straight].x - edge.destination.x) == (max_straight + 1) \
+                    or abs(path[-max_straight].y - edge.destination.y) == (max_straight + 1) for path in backtracked_paths):
+                        continue
 
                 if curr_distance is None or new_distance < curr_distance:
                     current_step_distances[edge.destination] = new_distance
@@ -119,13 +137,14 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
                     continue
                 if new_distance == prev_distance:
                     current_step_predecessors[edge.destination].append(prev_node)
-
+        #if none of the distances reduced we will not improve further, stop further iteration
         if not is_shortest_changed:
             break
         distances_by_path_steps.append(current_step_distances)
         predecessors_by_path_steps.append(current_step_predecessors)
 
     #restore path
+    print(shortest_distances[finish])
     steps_num = [x[finish] if finish in x else None for x in distances_by_path_steps].index(shortest_distances[finish])
     paths = [path + [finish] for path in backtrack(finish, steps_num, steps_num)]
     pass
