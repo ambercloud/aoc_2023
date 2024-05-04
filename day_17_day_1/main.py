@@ -79,26 +79,28 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     max_straight = 3
 
     def backtrack(last_node: Coords, steps, index = -1) -> List[List[Coords]]:
-        if steps == 1:
-            return [[p] for p in predecessors_by_path_steps[index][last_node]]
-        else:
-            predecessors = predecessors_by_path_steps[index][last_node][:]
-            paths = []
-            for pred in predecessors:
-                backtracked = backtrack(pred, steps - 1, index - 1)
-                for path in backtracked:
-                    #doing sanity checks
-                    #first check for 180-turns
-                    if steps > 2:
-                        if path[-2] == pred:
+        paths = [[last_node]]
+        for step in range(1, steps + 1):
+            next_paths = []
+            for path in paths:
+                last_node = path[-1]
+                predecessors = predecessors_by_path_steps[index][last_node]
+                for pred in predecessors:
+                    #sanity checks for backtracked paths
+                    #check for 180-turn
+                    if step >= 2:
+                        if pred == path[-2]:
                             continue
-                    #now check for too straightness
-                    if steps > max_straight + 1:
+                    #check for straight parts
+                    if step >= max_straight + 1:
                         if abs(pred.x - path[-(max_straight + 1)].x) == max_straight + 1 or abs(pred.y - path[-(max_straight + 1)].y) == max_straight + 1:
                             continue
-                    paths.append(path + [pred])
-            return paths
-
+                    next_paths.append(path + [pred])
+            paths = next_paths
+            index -= 1
+        reversed_paths = [[x for x in reversed(path)] for path in paths]
+        return reversed_paths
+        
     for i in range(len(nodes) - 1):
         print(i)
         previous_step_distances = distances_by_path_steps[i]
@@ -117,15 +119,15 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
                 #first is the check for 180-turns
                 #at step 0 there are no predecessors, skip
                 if i > 0:
-                    if all(edge.destination == path[-1] for path in backtracked_paths):
+                    if all(edge.destination == path[-2] for path in backtracked_paths):
                         continue
                 #second we need to check for straightness
                 #if all backtracked path are straight - we skip the edge
                 #check is performed by calculating absolute x or y distance between first node in backtracked path and edge.destination - next node candidate
                 #if by 3 steps the absolute difference in x or y coordinate is 3 - we moved only straight
                 if i >= max_straight:
-                    if all(abs(path[-max_straight].x - edge.destination.x) == (max_straight + 1) \
-                    or abs(path[-max_straight].y - edge.destination.y) == (max_straight + 1) for path in backtracked_paths):
+                    if all(abs(path[-(max_straight + 1)].x - edge.destination.x) == (max_straight + 1) \
+                    or abs(path[-(max_straight + 1)].y - edge.destination.y) == (max_straight + 1) for path in backtracked_paths):
                         continue
 
                 if curr_distance is None or new_distance < curr_distance:
@@ -147,7 +149,7 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
     #restore path
     print(shortest_distances[finish])
     steps_num = [x[finish] if finish in x else None for x in distances_by_path_steps].index(shortest_distances[finish])
-    paths = [path + [finish] for path in backtrack(finish, steps_num, steps_num)]
+    paths = [path for path in backtrack(finish, steps_num, steps_num)]
     pass
     return paths
 
@@ -160,7 +162,7 @@ for edge in edges:
     edges_dict[(edge.origin, edge.destination)] = edge
 
 start = Coords(0,0)
-finish = (len(costs[0]) - 1, len(costs) - 1)
+finish = Coords(len(costs[0]) - 1, len(costs) - 1)
 max_straight = 3
 
 paths = find_optimal_path(nodes, edges, start, finish)
