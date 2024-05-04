@@ -1,8 +1,6 @@
 from typing import List, NamedTuple, Iterator
-from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict
-import cProfile
 
 class Coords(NamedTuple):
     x: int
@@ -24,13 +22,6 @@ class Edge(NamedTuple):
 
     def __repr__(self) -> str:
         return f'({self.origin}-{self.destination},{self.distance},{self.direction.name})'
-
-'''@dataclass
-class Node:
-    xy: Coords
-    ins: list[Edge]
-    outs: list[Edge]
-    distance_from: defaultdict[Coords, int]'''
 
 def parse_input(filename: str) -> List[List[int]]:
     f = open(filename, mode='r', encoding='utf-8')
@@ -135,7 +126,7 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
                         shortest_distances[edge.destination] = new_distance
                         is_shortest_changed = True
                     continue
-                if new_distance == prev_distance:
+                if new_distance == curr_distance:
                     current_step_predecessors[edge.destination].append(prev_node)
         #if none of the distances reduced we will not improve further, stop further iteration
         if not is_shortest_changed:
