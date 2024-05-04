@@ -1,6 +1,7 @@
 from typing import List, NamedTuple, Iterator
 from enum import Enum
 from collections import defaultdict
+import itertools
 
 class Coords(NamedTuple):
     x: int
@@ -63,7 +64,7 @@ def build_graph(costs: List[List[int]]) -> tuple[List[Coords], List[Edge]]:
 
     return nodes, edges
 
-def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, finish: Coords) -> List[List[Edge]]:
+def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, finish: Coords) -> List[List[Coords]]:
     #calc min distances first, then restore the path of minimal distance (or multiple paths if there are more than one)
     #for a path of every length(in number of edges it consists of) we calculate minimal distance we can reach every node and last edge in the path (or multiple edges)
     #obviously not every node is reachable in arbitrary amount of steps
@@ -86,6 +87,15 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
             for pred in predecessors:
                 backtracked = backtrack(pred, steps - 1, index - 1)
                 for path in backtracked:
+                    #doing sanity checks
+                    #first check for 180-turns
+                    if steps > 2:
+                        if path[-2] == pred:
+                            continue
+                    #now check for too straightness
+                    if steps > max_straight + 1:
+                        if abs(pred.x - path[-(max_straight + 1)].x) == max_straight + 1 or abs(pred.y - path[-(max_straight + 1)].y) == max_straight + 1:
+                            continue
                     paths.append(path + [pred])
             return paths
 
@@ -145,9 +155,16 @@ def find_optimal_path(nodes: List[Coords], edges: List[Edge], start: Coords, fin
 
 costs = parse_input('input.txt')
 nodes, edges = build_graph(costs)
+edges_dict: dict[tuple[Coords, Coords], Edge] = {}
+for edge in edges:
+    edges_dict[(edge.origin, edge.destination)] = edge
+
 start = Coords(0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
+max_straight = 3
+
 paths = find_optimal_path(nodes, edges, start, finish)
+edges_paths = [[edges_dict[(origin, destination)] for origin, destination in itertools.pairwise(path)] for path in paths]
 for path in paths:
     print(path)
 pass
