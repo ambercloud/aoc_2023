@@ -9,6 +9,9 @@ class Coords(NamedTuple):
     x: int
     y: int
 
+    def __repr__(self) -> str:
+        return f'({self.x}:{self.y})'
+
 class Direction(Enum):
     n = 1
     e = 2
@@ -18,8 +21,11 @@ class Direction(Enum):
 class Edge(NamedTuple):
     origin: Coords
     destination: Coords
-    distance: Coords
+    distance: int
     direction: Direction
+
+    def __repr__(self) -> str:
+        return f'[{self.origin}, {self.destination}, {self.distance}, {self.direction.name}]'
 
 class PriorityQueue:
     def __init__(self) -> None:
@@ -56,7 +62,9 @@ class Node:
     xy: Coords
     ins: list[Edge]
     outs: list[Edge]
-    distance_from: defaultdict[Coords, int]
+
+    def __repr__(self) -> str:
+        return f'({self.xy.x}:{self.xy.y})'
 
 def parse_input(filename: str) -> List[List[int]]:
     f = open(filename, mode='r', encoding='utf-8')
@@ -80,7 +88,7 @@ def build_graph(costs: List[List[int]]) -> dict[Coords, Node]:
     for y, row in enumerate(costs):
         for x, cost in enumerate(row):
             xy = Coords(x, y)
-            nodes[xy] = Node(xy, [], [], defaultdict(lambda : float('inf')))
+            nodes[xy] = Node(xy, [], [])
 
     for y, row in enumerate(costs):
         for x, cost in enumerate(row):
@@ -94,12 +102,16 @@ def build_graph(costs: List[List[int]]) -> dict[Coords, Node]:
 
     return nodes
 
-def calc_min_distance(nodes: dict[Coords, Node], origin: Coords) -> None:
+def calc_min_distance(nodes: dict[Coords, Node], origin: Coords) -> dict[Coords, int|float]:
+    INF = float('inf')
     visited: set[Coords] = set()
+    min_distances: dict[Coords, int|float] = defaultdict(lambda: INF)
+    prev_edge: dict[Coords, Edge] = {}
+    current_heat: dict[Coords, int] = {}
     origin_node = nodes[origin]
-    origin_node.distance_from[origin] = 0
+    min_distances[origin] = 0
     queue = PriorityQueue()
-    queue.add_task(origin, origin_node.distance_from[origin])
+    queue.add_task(origin, min_distances[origin])
     while True:
         try:
             current_xy: Coords = queue.pop_task()
@@ -110,16 +122,20 @@ def calc_min_distance(nodes: dict[Coords, Node], origin: Coords) -> None:
         to_check = (edge for edge in current.outs if not edge.destination in visited)
         for edge in to_check:
             dest = nodes[edge.destination]
-            dest.distance_from[origin] = min(dest.distance_from[origin], current.distance_from[origin] + edge.distance)
-            queue.add_task(dest.xy, dest.distance_from[origin])
+            current_distance = min_distances[dest.xy]
+            new_distance = min_distances[current.xy] + edge.distance
+            if new_distance < current_distance:
+                min_distances[dest.xy] = new_distance
+            queue.add_task(dest.xy, min_distances[dest.xy])
+    return min_distances
 
 def find_shortest_path(nodes: dict[Coords, Node], start: Coords, finish: Coords) -> List[Edge]:
-    calc_min_distance(nodes, start)
+    min_distances = calc_min_distance(nodes, start)
     curr = finish
-    path = [finish]
+    path = []
     while not curr == start:
         previous = (edge for edge in nodes[curr].ins)
-        best_previous = min(previous, key = lambda e: nodes[e.origin].distance_from[start])
+        best_previous = min(previous, key = lambda e: min_distances[e.origin])
         path.append(best_previous)
         curr = best_previous.origin
     path = [x for x in reversed(path)]
@@ -131,4 +147,5 @@ nodes = build_graph(costs)
 start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
 path = find_shortest_path(nodes, start, finish)
+print([start] + [e.destination for e in path])
 pass
