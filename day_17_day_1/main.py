@@ -102,14 +102,12 @@ def build_graph(costs: List[List[int]]) -> dict[Coords, Node]:
 
     return nodes
 
-def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) -> dict[Coords, int|float]:
+def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) -> tuple[dict[Coords, int|float], dict[Coords, Edge]]:
     INF = float('inf')
     visited: set[Coords] = set()
     min_distances: dict[Coords, int|float] = defaultdict(lambda: INF)
     prev_edge: dict[Coords, Edge] = {}
-    heat: dict[Coords, int] = {}
     min_distances[start] = 0
-    heat[start] = max_heat
     prev_edge[start] = Edge(start, start, 0, 0)
     current = start
     queue = PriorityQueue()
@@ -129,19 +127,8 @@ def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) ->
             current_distance = min_distances[destination]
             new_distance = min_distances[origin] + edge.distance
             if new_distance < current_distance:
-                is_lose_heat = edge.direction == prev_edge[origin].direction or prev_edge[origin].direction == 0
-                new_heat = heat[origin] - 1 if is_lose_heat else max_heat - 1
-                if not (new_heat < 0):
-                    min_distances[destination] = new_distance
-                    heat[destination] = new_heat
-                    prev_edge[destination] = edge
-            if new_distance == current_distance and not new_distance == INF:
-                is_lose_heat = edge.direction == prev_edge[origin].direction or prev_edge[origin].direction == 0
-                new_heat = heat[origin] - 1 if is_lose_heat else max_heat - 1
-                current_heat = heat[destination]
-                if new_heat > current_heat:
-                    heat[destination] = new_heat
-                    prev_edge[destination] = edge
+                min_distances[destination] = new_distance
+                prev_edge[destination] = edge
             queue.add_task(destination, min_distances[destination])
     return min_distances, prev_edge
 
@@ -157,11 +144,11 @@ def find_shortest_path(nodes: dict[Coords, Node], start: Coords, finish: Coords)
     return path
 
 
-costs = parse_input('input.txt')
+costs = parse_input('test.txt')
 nodes = build_graph(costs)
 start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
 path = find_shortest_path(nodes, start, finish)
-print([start] + [e.destination for e in path])
+print(path)
 print(sum([edge.distance for edge in path]))
 pass
