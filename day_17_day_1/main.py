@@ -102,16 +102,18 @@ def build_graph(costs: List[List[int]]) -> dict[Coords, Node]:
 
     return nodes
 
-def calc_min_distance(nodes: dict[Coords, Node], origin: Coords) -> dict[Coords, int|float]:
+def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) -> dict[Coords, int|float]:
     INF = float('inf')
     visited: set[Coords] = set()
     min_distances: dict[Coords, int|float] = defaultdict(lambda: INF)
     prev_edge: dict[Coords, Edge] = {}
-    current_heat: dict[Coords, int] = {}
-    origin_node = nodes[origin]
-    min_distances[origin] = 0
+    heat: dict[Coords, int] = {}
+    min_distances[start] = 0
+    heat[start] = max_heat
+    prev_edge[start] = Edge(start, start, 0, 0)
+    current = start
     queue = PriorityQueue()
-    queue.add_task(origin, min_distances[origin])
+    queue.add_task(current, min_distances[current])
     while True:
         try:
             current_xy: Coords = queue.pop_task()
@@ -121,23 +123,28 @@ def calc_min_distance(nodes: dict[Coords, Node], origin: Coords) -> dict[Coords,
         visited.add(current_xy)
         to_check = (edge for edge in current.outs if not edge.destination in visited)
         for edge in to_check:
-            dest = nodes[edge.destination]
-            current_distance = min_distances[dest.xy]
-            new_distance = min_distances[current.xy] + edge.distance
+            origin = current_xy
+            destination = edge.destination
+            current_distance = min_distances[destination]
+            new_distance = min_distances[origin] + edge.distance
             if new_distance < current_distance:
-                min_distances[dest.xy] = new_distance
-            queue.add_task(dest.xy, min_distances[dest.xy])
-    return min_distances
+                is_lose_heat = edge.direction == prev_edge[origin].direction or prev_edge[origin].direction == 0
+                new_heat = heat[origin] - 1 if is_lose_heat else max_heat - 1
+                if not (new_heat < 0):
+                    min_distances[destination] = new_distance
+                    heat[destination] = new_heat
+                    prev_edge[destination] = edge
+            queue.add_task(destination, min_distances[destination])
+    return min_distances, prev_edge
 
 def find_shortest_path(nodes: dict[Coords, Node], start: Coords, finish: Coords) -> List[Edge]:
-    min_distances = calc_min_distance(nodes, start)
+    min_distances, previous_edge = calc_min_distance(nodes, start)
     curr = finish
     path = []
     while not curr == start:
-        previous = (edge for edge in nodes[curr].ins)
-        best_previous = min(previous, key = lambda e: min_distances[e.origin])
-        path.append(best_previous)
-        curr = best_previous.origin
+        previous = previous_edge[curr]
+        path.append(previous)
+        curr = previous.origin
     path = [x for x in reversed(path)]
     return path
 
@@ -148,4 +155,5 @@ start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
 path = find_shortest_path(nodes, start, finish)
 print([start] + [e.destination for e in path])
+print(sum([edge.distance for edge in path]))
 pass
