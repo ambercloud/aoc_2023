@@ -121,7 +121,8 @@ def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) ->
             break
         current: Node = nodes[current_xy]
         visited.add(current_xy)
-        to_check = (edge for edge in current.outs if not edge.destination in visited)
+        to_check = [edge for edge in current.outs if not edge.destination in visited]
+        to_check = [edge for edge in sorted(to_check, key = lambda e: min_distances[e.destination])]
         for edge in to_check:
             origin = current_xy
             destination = edge.destination
@@ -132,6 +133,13 @@ def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) ->
                 new_heat = heat[origin] - 1 if is_lose_heat else max_heat - 1
                 if not (new_heat < 0):
                     min_distances[destination] = new_distance
+                    heat[destination] = new_heat
+                    prev_edge[destination] = edge
+            if new_distance == current_distance and not new_distance == INF:
+                is_lose_heat = edge.direction == prev_edge[origin].direction or prev_edge[origin].direction == 0
+                new_heat = heat[origin] - 1 if is_lose_heat else max_heat - 1
+                current_heat = heat[destination]
+                if new_heat > current_heat:
                     heat[destination] = new_heat
                     prev_edge[destination] = edge
             queue.add_task(destination, min_distances[destination])
