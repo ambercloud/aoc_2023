@@ -102,7 +102,7 @@ def build_graph(costs: List[List[int]]) -> dict[Coords, Node]:
 
     return nodes
 
-def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) -> tuple[dict[Coords, int|float], dict[Coords, Edge]]:
+def calc_min_distance(nodes: dict[Coords, Node], start: Coords) -> tuple[dict[Coords, int|float], dict[Coords, Edge]]:
     INF = float('inf')
     visited: set[Coords] = set()
     min_distances: dict[Coords, int|float] = defaultdict(lambda: INF)
@@ -132,7 +132,7 @@ def calc_min_distance(nodes: dict[Coords, Node], start: Coords, max_heat = 3) ->
             queue.add_task(destination, min_distances[destination])
     return min_distances, prev_edge
 
-def find_shortest_path(nodes: dict[Coords, Node], start: Coords, finish: Coords) -> List[Edge]:
+def find_shortest_path(nodes: dict[Coords, Node], start: Coords, finish: Coords) -> tuple[int, List[Edge]]:
     min_distances, previous_edge = calc_min_distance(nodes, start)
     curr = finish
     path = []
@@ -141,14 +141,49 @@ def find_shortest_path(nodes: dict[Coords, Node], start: Coords, finish: Coords)
         path.append(previous)
         curr = previous.origin
     path = [x for x in reversed(path)]
-    return path
+    return min_distances[finish], path
 
+def find_optimal_path(nodes: dict[Coords, Node], start: Coords, finish: Coords, max_straight = 3) -> List[Edge]:
+    def find_straight_chunk(path: List[Edge]) -> int:        
+        for i in range(0, len(path) - too_straight + 1):
+            chunk = path[i:i + too_straight]
+            if all(edge.direction == chunk[0].direction for edge in chunk):
+                return i
+        return -1
+
+    too_straight = max_straight + 1
+
+    optimal_path = []
+    total_distance, path = find_shortest_path(nodes, start, finish)
+    while True:
+        #find start of a straight chunk
+        straight_start = find_straight_chunk(path)
+        if straight_start == -1:
+            optimal_path += path
+            break
+        #put everythink before it into optimal path, rest in new path
+        optimal_path += path[:straight_start]
+        path = path[straight_start:]
+        #remove an edge in a straight chunk, find new shortest path, save it, restore the edge
+        #try it for every edge in straight chunk, then save shortest path as new path
+        path_candidates: List[tuple[int, list[Edge]]] = []
+        for i in range(too_straight):
+            edge = path[i]
+            node = nodes[edge.origin]
+            node.outs.remove(edge)
+            path_candidates.append(find_shortest_path(nodes, path[0].origin, finish))
+            node.outs.append(edge)
+        total_distance, path = min(path_candidates, key = lambda dist_path: dist_path[0])
+    return optimal_path
 
 costs = parse_input('test.txt')
 nodes = build_graph(costs)
 start = (0,0)
 finish = (len(costs[0]) - 1, len(costs) - 1)
-path = find_shortest_path(nodes, start, finish)
+'''distance, path = find_shortest_path(nodes, start, finish)
+print(path)
+print(distance)'''
+path = find_optimal_path(nodes, start, finish)
 print(path)
 print(sum([edge.distance for edge in path]))
 pass
