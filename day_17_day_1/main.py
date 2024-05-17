@@ -5,6 +5,8 @@ from collections import defaultdict
 import itertools
 import heapq
 
+#dropping for now
+
 class Coords(NamedTuple):
     x: int
     y: int
